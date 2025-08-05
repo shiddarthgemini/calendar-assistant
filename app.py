@@ -10,11 +10,6 @@ import secrets
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)  # Generate a random secret key
 
-# Deployment configuration
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
-
 # User sessions storage (in production, use a proper database)
 user_sessions = {}
 
@@ -308,5 +303,7 @@ def profile():
     user_info = user_sessions.get(user_id, {})
     return render_template('profile.html', user_info=user_info)
 
+# Deployment configuration
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False) 
