@@ -218,7 +218,26 @@ def parse_prompt(text):
 
 def get_google_auth_flow(redirect_uri=None):
     """Get Google OAuth flow for web application."""
-    flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+    # Try to use environment variables first (for deployment)
+    client_id = os.getenv('GOOGLE_CLIENT_ID')
+    client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+    
+    if client_id and client_secret:
+        # Use environment variables
+        client_config = {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs"
+            }
+        }
+        flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+    else:
+        # Fallback to credentials.json file (for local development)
+        flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+    
     if redirect_uri:
         flow.redirect_uri = redirect_uri
     return flow

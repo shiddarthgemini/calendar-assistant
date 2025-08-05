@@ -43,9 +43,12 @@ def google_auth():
     from quickstart import get_google_auth_flow
     
     try:
-        # Check if credentials.json exists
-        if not os.path.exists('credentials.json'):
-            flash('Google OAuth credentials not found. Please follow the setup guide in GOOGLE_OAUTH_SETUP.md', 'error')
+        # Check if credentials are available (either from file or environment variables)
+        client_id = os.getenv('GOOGLE_CLIENT_ID')
+        client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+        
+        if not os.path.exists('credentials.json') and (not client_id or not client_secret):
+            flash('Google OAuth credentials not found. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.', 'error')
             return redirect(url_for('login'))
         
         # Clear any existing OAuth session data to prevent conflicts
