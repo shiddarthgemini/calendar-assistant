@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Calendar Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+        .login-header {
+            margin-bottom: 2rem;
+        }
+        .login-header h1 {
+            color: #333;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .login-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        .google-btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+        .google-btn:hover {
+            background: #3367d6;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(66, 133, 244, 0.3);
+            color: white;
+        }
+        .features {
+            margin-top: 2rem;
+            text-align: left;
+        }
+        .features h5 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            color: #666;
+        }
+        .feature-item i {
+            color: #667eea;
+            margin-right: 0.75rem;
+            width: 20px;
+        }
+        .alert {
+            border-radius: 15px;
+            border: none;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Login Header -->
+        <div class="login-header">
+            <h1><i class="fas fa-calendar-alt me-3"></i>Calendar Assistant</h1>
+            <p>Create events with natural language using AI</p>
+        </div>
+
+        <!-- Google Login Button -->
+        <a href="{{ url_for('google_auth') }}" class="google-btn">
+            <i class="fab fa-google"></i>
+            Continue with Google
+        </a>
+
+        <!-- Features -->
+        <div class="features">
+            <h5><i class="fas fa-star me-2"></i>What you can do:</h5>
+            <div class="feature-item">
+                <i class="fas fa-check"></i>
+                Create events with natural language
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-check"></i>
+                AI-powered date and time parsing
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-check"></i>
+                Manage your Google Calendar
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-check"></i>
+                View upcoming events
+            </div>
+        </div>
+
+        <!-- Examples -->
+        <div class="features">
+            <h5><i class="fas fa-lightbulb me-2"></i>Try saying:</h5>
+            <div class="feature-item">
+                <i class="fas fa-quote-left"></i>
+                "team meeting tomorrow at 3pm"
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-quote-left"></i>
+                "call with John in 2 hours"
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-quote-left"></i>
+                "doctor appointment Friday 2pm for 30 minutes"
+            </div>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div class="features">
+            <h5><i class="fas fa-tools me-2"></i>Having issues?</h5>
+            <div class="feature-item">
+                <i class="fas fa-info-circle"></i>
+                <a href="{{ url_for('reauth') }}" class="text-decoration-none">Force re-authentication</a>
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-question-circle"></i>
+                <small>Make sure you're added as a test user in Google Cloud Console</small>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 
