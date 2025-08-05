@@ -59,8 +59,8 @@ def google_auth():
         oauth_state = secrets.token_urlsafe(32)
         session['oauth_state'] = oauth_state
         
-        # Set redirect URI for OAuth callback
-        oauth_redirect_uri = url_for('oauth2callback', _external=True)
+        # Set redirect URI for OAuth callback (force HTTPS)
+        oauth_redirect_uri = url_for('oauth2callback', _external=True, _scheme='https')
         session['oauth_redirect_uri'] = oauth_redirect_uri
         
         # Create OAuth flow
