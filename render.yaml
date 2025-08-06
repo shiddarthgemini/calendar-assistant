@@ -3,9 +3,4 @@ services:
     name: calendar-assistant
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python start_cloud.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.7
-      - key: FLASK_ENV
-        value: production 
+    startCommand: python start_cloud.py 

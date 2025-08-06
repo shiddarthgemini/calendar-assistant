@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Cloud-optimized startup script for Calendar Assistant
-Handles MCP server initialization for cloud environments
+Handles true MCP client-server architecture for cloud environments
 """
 
 import os
@@ -36,17 +36,42 @@ def check_environment():
     logger.info("All required environment variables are set")
     return True
 
+def test_mcp_server():
+    """Test if MCP server can start properly."""
+    try:
+        from mcp_client import MCPClient
+        
+        logger.info("Testing MCP server startup...")
+        client = MCPClient()
+        
+        if client.start_server():
+            logger.info("✅ MCP server test successful")
+            client.stop_server()
+            return True
+        else:
+            logger.error("❌ MCP server test failed")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ MCP server test error: {e}")
+        return False
+
 def main():
     """Main startup function."""
-    logger.info("🚀 Starting Calendar Assistant in cloud mode...")
+    logger.info("🚀 Starting Calendar Assistant with true MCP architecture...")
     
     # Check environment
     if not check_environment():
         logger.error("Environment check failed. Exiting.")
         sys.exit(1)
     
-    # Start the Flask app directly (let it handle MCP internally)
-    logger.info("✅ Environment check passed. Starting Flask app...")
+    # Test MCP server
+    if not test_mcp_server():
+        logger.error("MCP server test failed. Exiting.")
+        sys.exit(1)
+    
+    # Start the Flask app
+    logger.info("✅ All checks passed. Starting Flask app...")
     
     try:
         # Import and run Flask app

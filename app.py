@@ -27,7 +27,6 @@ def get_mcp_client():
         if mcp_client is None:
             print("[FLASK] Creating new MCP client...")
             try:
-                # Try true MCP client first
                 mcp_client = MCPClient()
                 print("[FLASK] Starting MCP server...")
                 
@@ -44,23 +43,11 @@ def get_mcp_client():
                             time.sleep(2)  # Wait before retry
                         else:
                             print("[FLASK] All attempts to start MCP server failed!")
-                            print("[FLASK] Falling back to SimpleMCPClient...")
-                            # Fallback to SimpleMCPClient
-                            from simple_mcp_client import SimpleMCPClient
-                            mcp_client = SimpleMCPClient()
-                            print("[FLASK] SimpleMCPClient created successfully")
-                            return mcp_client
+                            return None
                             
             except Exception as e:
                 print(f"[FLASK] Error creating MCP client: {e}")
-                print("[FLASK] Falling back to SimpleMCPClient...")
-                try:
-                    from simple_mcp_client import SimpleMCPClient
-                    mcp_client = SimpleMCPClient()
-                    print("[FLASK] SimpleMCPClient created successfully")
-                except Exception as fallback_error:
-                    print(f"[FLASK] Fallback also failed: {fallback_error}")
-                    return None
+                return None
                 
         return mcp_client
 
