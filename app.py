@@ -27,6 +27,7 @@ def get_mcp_client():
         if mcp_client is None:
             print("[FLASK] Creating new MCP client...")
             try:
+                # Try true MCP client first
                 mcp_client = MCPClient()
                 print("[FLASK] Starting MCP server...")
                 
@@ -43,11 +44,23 @@ def get_mcp_client():
                             time.sleep(2)  # Wait before retry
                         else:
                             print("[FLASK] All attempts to start MCP server failed!")
-                            return None
+                            print("[FLASK] Falling back to SimpleMCPClient...")
+                            # Fallback to SimpleMCPClient
+                            from simple_mcp_client import SimpleMCPClient
+                            mcp_client = SimpleMCPClient()
+                            print("[FLASK] SimpleMCPClient created successfully")
+                            return mcp_client
                             
             except Exception as e:
                 print(f"[FLASK] Error creating MCP client: {e}")
-                return None
+                print("[FLASK] Falling back to SimpleMCPClient...")
+                try:
+                    from simple_mcp_client import SimpleMCPClient
+                    mcp_client = SimpleMCPClient()
+                    print("[FLASK] SimpleMCPClient created successfully")
+                except Exception as fallback_error:
+                    print(f"[FLASK] Fallback also failed: {fallback_error}")
+                    return None
                 
         return mcp_client
 
@@ -70,6 +83,31 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for deployment monitoring."""
+    try:
+        # Check if MCP client can be created
+        mcp_client = get_mcp_client()
+        if mcp_client:
+            return jsonify({
+                'status': 'healthy',
+                'mcp_client': 'available',
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'status': 'degraded',
+                'mcp_client': 'unavailable',
+                'timestamp': datetime.now().isoformat()
+            }), 503
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/')
 @login_required
