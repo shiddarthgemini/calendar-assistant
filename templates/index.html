@@ -415,6 +415,10 @@
             const questionsDiv = document.getElementById('followupQuestions');
             questionsDiv.innerHTML = questions.map(q => `<p class="mb-2"><i class="fas fa-question me-2"></i>${q}</p>`).join('');
             const modal = document.getElementById('followupModal');
+            
+            console.log('[DEBUG] Modal element:', modal);
+            console.log('[DEBUG] Modal current display style:', modal.style.display);
+            
             modal.style.display = 'block';
             console.log('[DEBUG] Modal display style set to:', modal.style.display);
             
@@ -428,6 +432,12 @@
             modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
             
             console.log('[DEBUG] Modal should now be visible');
+            console.log('[DEBUG] Modal computed styles:', {
+                display: window.getComputedStyle(modal).display,
+                visibility: window.getComputedStyle(modal).visibility,
+                zIndex: window.getComputedStyle(modal).zIndex
+            });
+            
             document.getElementById('followupInput').focus();
         }
 
