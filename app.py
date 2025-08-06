@@ -26,12 +26,29 @@ def get_mcp_client():
     with mcp_client_lock:
         if mcp_client is None:
             print("[FLASK] Creating new MCP client...")
-            mcp_client = MCPClient()
-            print("[FLASK] Starting MCP server...")
-            if not mcp_client.start_server():
-                print("[FLASK] Failed to start MCP server!")
+            try:
+                mcp_client = MCPClient()
+                print("[FLASK] Starting MCP server...")
+                
+                # Try to start the server with retries
+                max_retries = 3
+                for attempt in range(max_retries):
+                    if mcp_client.start_server():
+                        print(f"[FLASK] MCP server started successfully on attempt {attempt + 1}")
+                        break
+                    else:
+                        print(f"[FLASK] Failed to start MCP server on attempt {attempt + 1}")
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(2)  # Wait before retry
+                        else:
+                            print("[FLASK] All attempts to start MCP server failed!")
+                            return None
+                            
+            except Exception as e:
+                print(f"[FLASK] Error creating MCP client: {e}")
                 return None
-            print("[FLASK] MCP client created and server started successfully")
+                
         return mcp_client
 
 def cleanup_mcp_client():

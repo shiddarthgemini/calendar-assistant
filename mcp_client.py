@@ -35,20 +35,38 @@ class MCPClient:
         try:
             logger.info(f"[MCP] Starting server with command: {self.server_command}")
             
-            # Use unbuffered I/O for Windows compatibility
-            self.server_process = subprocess.Popen(
-                ["python", "-u", "mcp_server.py"],  # -u for unbuffered output
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=0,  # No buffering
-                cwd=os.getcwd()  # Set working directory
-            )
+            # Check if we're in a cloud environment
+            is_cloud = os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RENDER') or os.getenv('HEROKU')
+            
+            if is_cloud:
+                logger.info("[MCP] Detected cloud environment, using cloud-optimized settings")
+                # In cloud, use different approach
+                self.server_process = subprocess.Popen(
+                    ["python", "-u", "mcp_server.py"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=0,
+                    cwd=os.getcwd(),
+                    env=dict(os.environ)  # Pass all environment variables
+                )
+            else:
+                # Local development settings
+                self.server_process = subprocess.Popen(
+                    ["python", "-u", "mcp_server.py"],  # -u for unbuffered output
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=0,  # No buffering
+                    cwd=os.getcwd()  # Set working directory
+                )
             
             # Wait a moment for the server to start
             import time
-            time.sleep(2)  # Increased wait time for Windows
+            wait_time = 3 if is_cloud else 2  # Longer wait for cloud
+            time.sleep(wait_time)
             
             # Check if process is still alive
             if self.server_process.poll() is not None:
