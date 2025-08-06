@@ -1,6 +1,9 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
-from quickstart import parse_prompt, create_event, get_calendar_service, list_upcoming_events
+from calendar_api import get_google_auth_flow, get_credentials_from_auth_code, get_calendar_service
 from googleapiclient.discovery import build
+from mcp_client import MCPClient
+import threading
+import time
 import json
 from datetime import datetime
 import os
@@ -12,6 +15,35 @@ app.secret_key = secrets.token_hex(16)  # Generate a random secret key
 
 # User sessions storage (in production, use a proper database)
 user_sessions = {}
+
+# Global MCP client that stays alive
+mcp_client = None
+mcp_client_lock = threading.Lock()
+
+def get_mcp_client():
+    """Get or create the global MCP client."""
+    global mcp_client
+    with mcp_client_lock:
+        if mcp_client is None:
+            print("[FLASK] Creating new MCP client...")
+            mcp_client = MCPClient()
+            print("[FLASK] Starting MCP server...")
+            if not mcp_client.start_server():
+                print("[FLASK] Failed to start MCP server!")
+                return None
+            print("[FLASK] MCP client created and server started successfully")
+        return mcp_client
+
+def cleanup_mcp_client():
+    """Clean up the global MCP client."""
+    global mcp_client
+    with mcp_client_lock:
+        if mcp_client:
+            print("[FLASK] Stopping MCP server...")
+            mcp_client.stop_server()
+            print("[FLASK] Cleaning up MCP client...")
+            mcp_client = None
+            print("[FLASK] MCP client cleaned up")
 
 def login_required(f):
     """Decorator to require login for routes."""
@@ -40,7 +72,6 @@ def login():
 @app.route('/auth/google')
 def google_auth():
     """Initiate Google OAuth flow."""
-    from quickstart import get_google_auth_flow
     
     try:
         # Check if credentials are available (either from file or environment variables)
@@ -59,8 +90,13 @@ def google_auth():
         oauth_state = secrets.token_urlsafe(32)
         session['oauth_state'] = oauth_state
         
-        # Set redirect URI for OAuth callback (force HTTPS)
-        oauth_redirect_uri = url_for('oauth2callback', _external=True, _scheme='https')
+        # Set redirect URI for OAuth callback (use HTTPS only in production)
+        if os.getenv('FLASK_ENV') == 'production' or os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RENDER'):
+            # Use HTTPS in production
+            oauth_redirect_uri = url_for('oauth2callback', _external=True, _scheme='https')
+        else:
+            # Use HTTP for local development
+            oauth_redirect_uri = url_for('oauth2callback', _external=True)
         session['oauth_redirect_uri'] = oauth_redirect_uri
         
         # Create OAuth flow
@@ -83,7 +119,6 @@ def google_auth():
 @app.route('/oauth2callback')
 def oauth2callback():
     """Handle OAuth callback from Google."""
-    from quickstart import get_credentials_from_auth_code, get_calendar_service
     
     try:
         # Check for OAuth errors first
@@ -219,58 +254,92 @@ def reauth():
 @app.route('/add_event', methods=['POST'])
 @login_required
 def add_event():
-    """Handle adding events via AJAX."""
+    """Handle adding events via AJAX using MCP server with follow-up support."""
     try:
         user_id = session['user_id']
         data = request.get_json()
         prompt = data.get('prompt', '').strip()
+        chat_context = data.get('chat_context', [])
+        followup_response = data.get('followup_response', '')
+        original_parsed_data = data.get('original_parsed_data', {})
         
-        if not prompt:
-            return jsonify({'success': False, 'error': 'No prompt provided'})
+        if not prompt and not followup_response:
+            return jsonify({'success': False, 'error': 'No prompt or follow-up response provided'})
         
-        # Parse the prompt
-        title, start_time, duration = parse_prompt(prompt)
+        print(f"[FLASK] Adding event - Prompt: '{prompt}', Followup: '{followup_response}', User: {user_id}")
         
-        if not start_time:
-            return jsonify({'success': False, 'error': 'Could not parse date/time from prompt'})
+        # Use persistent MCP client
+        try:
+            mcp_client = get_mcp_client()
+            if mcp_client is None:
+                result = {'success': False, 'error': 'Failed to start MCP server'}
+            else:
+                # Handle follow-up response
+                if followup_response and original_parsed_data:
+                    result = mcp_client.handle_followup_response(prompt, followup_response, user_id, original_parsed_data)
+                else:
+                    # Check if duration_minutes is provided directly
+                    duration_minutes = data.get('duration_minutes')
+                    if duration_minutes:
+                        # Create event with specific duration
+                        result = mcp_client.add_calendar_event_with_duration(prompt, user_id, duration_minutes, chat_context)
+                    else:
+                        # Use MCP client to create the event
+                        result = mcp_client.add_calendar_event(prompt, user_id, chat_context)
+        except Exception as e:
+            print(f"[FLASK] MCP client error: {str(e)}")
+            result = {'success': False, 'error': f'MCP client error: {str(e)}'}
         
-        # Get calendar service for the current user
-        service = get_calendar_service(user_id)
+        print(f"[FLASK] MCP result: {result}")
         
-        if not service:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        # Create the event
-        created_event = create_event(service, title, start_time, duration)
-        
-        if created_event:
+        if result.get('needs_followup', False):
+            return jsonify({
+                'success': False,
+                'needs_followup': True,
+                'followup_questions': result.get('followup_questions', []),
+                'parsed_data': result.get('parsed_data', {}),
+                'message': result.get('message', 'Please provide additional details.')
+            })
+        elif result['success']:
             return jsonify({
                 'success': True,
-                'message': f"Event '{title}' created successfully!",
-                'link': created_event.get('htmlLink', ''),
-                'title': title,
-                'start_time': start_time.strftime('%B %d, %Y at %I:%M %p'),
-                'duration': duration if duration else 'User specified'
+                'message': result['message'],
+                'title': result.get('title', 'Event created via MCP'),
+                'start_time': result.get('start_time', 'Event details in message'),
+                'duration': result.get('duration', 'Event details in message'),
+                'location': result.get('location', 'Not specified'),
+                'description': result.get('description', ''),
+                'link': result.get('link', 'https://calendar.google.com')
             })
         else:
-            return jsonify({'success': False, 'error': 'Failed to create event'})
+            return jsonify({'success': False, 'error': result['error']})
             
     except Exception as e:
+        print(f"[FLASK] Error in add_event: {str(e)}")
         return jsonify({'success': False, 'error': f'Error: {str(e)}'})
 
 @app.route('/list_events')
 @login_required
 def list_events():
-    """List upcoming events."""
+    """List upcoming events using MCP server."""
     try:
         user_id = session['user_id']
-        service = get_calendar_service(user_id)
         
-        if not service:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        # Use persistent MCP client to list events
+        try:
+            mcp_client = get_mcp_client()
+            if mcp_client is None:
+                result = {'success': False, 'error': 'Failed to start MCP server'}
+            else:
+                result = mcp_client.list_upcoming_events(user_id, max_results=10)
+        except Exception as e:
+            print(f"[FLASK] MCP client error: {str(e)}")
+            result = {'success': False, 'error': f'MCP client error: {str(e)}'}
         
-        events = list_upcoming_events(service, max_results=10)
-        return jsonify({'success': True, 'events': events})
+        if result['success']:
+            return jsonify({'success': True, 'events': result['events']})
+        else:
+            return jsonify({'success': False, 'error': result['error']})
     except Exception as e:
         return jsonify({'success': False, 'error': f'Error: {str(e)}'})
 
@@ -309,4 +378,7 @@ def profile():
 # Deployment configuration
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False) 
+    try:
+        app.run(host='0.0.0.0', port=port, debug=False)
+    finally:
+        cleanup_mcp_client() 
